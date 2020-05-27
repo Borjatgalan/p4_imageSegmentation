@@ -17,10 +17,10 @@
 
 
 /**
- * P3 - Segment Detection
+ * P4 - Image Segmentation
  * Ivan González
  * Borja Alberto Tirado Galán
- * 26 Mayo 2020
+ *
  *
  */
 
