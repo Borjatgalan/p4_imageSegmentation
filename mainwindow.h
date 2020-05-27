@@ -60,6 +60,7 @@ private:
     Mat colorImage, grayImage, destColorImage, destGrayImage;
     bool winSelected;
     Rect imageWindow;
+    Mat detected_edges;
     Mat canny_image; //Mat de canny
 
 

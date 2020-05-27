@@ -25,8 +25,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     grayImage.create(240, 320, CV_8UC1);
     destColorImage.create(240, 320, CV_8UC3);
     destGrayImage.create(240, 320, CV_8UC1);
-    corners.create(240, 320, CV_8UC1);
     canny_image.create(240, 320, CV_8UC1);
+    detected_edges.create(240, 320, CV_8UC1);
 
     visorS = new ImgViewer(&grayImage, ui->imageFrameS);
     visorD = new ImgViewer(&destGrayImage, ui->imageFrameD);
@@ -194,6 +194,21 @@ void MainWindow::saveToFile()
 
 void MainWindow::initialize(){
     //INICIALIZA PARÁMETROS COMO IMAGEN DE MÁSCARA Y HACE EL GUARDADO DE LA IMAGEN CANNY
+    int lowThreshold = 40;
+    int const maxThreshold = 120;
+
+    grayImage.copySize(destGrayImage);
+    // Reduce noise with a kernel 3x3
+    blur(destGrayImage, detected_edges, Size(3, 3));
+
+    // Canny detector
+    cv::Canny(detected_edges, canny_image, lowThreshold, maxThreshold, 3);
+
+
+    // Using Canny's output as a mask, we display our result
+    destGrayImage = Scalar::all(0);
+
+    grayImage.copyTo(destGrayImage, canny_image);
 }
 
 void MainWindow::segmentation(){
