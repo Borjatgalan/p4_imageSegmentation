@@ -72,6 +72,8 @@ public slots:
     void deselectWindow();
     void loadFromFile();
     void saveToFile();
+    void initialize();
+    void segmentation();
 };
 
 

@@ -191,3 +191,11 @@ void MainWindow::saveToFile()
 
     connect(&timer, SIGNAL(timeout()), this, SLOT(compute()));
 }
+
+void MainWindow::initialize(){
+    //INICIALIZA PARÁMETROS COMO IMAGEN DE MÁSCARA Y HACE EL GUARDADO DE LA IMAGEN CANNY
+}
+
+void MainWindow::segmentation(){
+    //HACE EL PROCESAMIENTO DE LA IMAGEN
+}
