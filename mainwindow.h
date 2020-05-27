@@ -18,7 +18,7 @@
 
 /**
  * P4 - Image Segmentation
- * Ivan González
+ * Ivan González Domínguez
  * Borja Alberto Tirado Galán
  *
  *
@@ -60,23 +60,7 @@ private:
     Mat colorImage, grayImage, destColorImage, destGrayImage;
     bool winSelected;
     Rect imageWindow;
-    Mat corners; //Mat de esquinas
     Mat canny_image; //Mat de canny
-    Mat detected_edges;
-    int threshold;
-    int rho;
-    float theta;
-
-    /*
-     * cornerList[0] = Point
-     * cornerList[1] = Valor de Point */
-    std::vector<punto> cornerList;
-    // Vector de lineas
-    std::vector<QLine> lineList;
-    // Vector de puntos validos
-    std::vector<Point> pCorte;
-    //Vector de segmentos
-    std::vector<QLine> segmentList;
 
 
 
@@ -88,13 +72,6 @@ public slots:
     void deselectWindow();
     void loadFromFile();
     void saveToFile();
-    void printCorners();
-    void cornerDetection();
-    void edgesDetection();
-    void linesDetection();
-    void segmentDetection();
-    void printLines();
-    void printSegments();
 };
 
 
