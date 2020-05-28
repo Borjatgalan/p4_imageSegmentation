@@ -131,6 +131,9 @@
     </property>
    </widget>
    <widget class="QSpinBox" name="max_box">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>10</x>
@@ -147,6 +150,9 @@
     </property>
    </widget>
    <widget class="QCheckBox" name="showFloatingRange_checkbox">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>10</x>

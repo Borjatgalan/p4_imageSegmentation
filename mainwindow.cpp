@@ -20,6 +20,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     cap = new VideoCapture(0);
     winSelected = false;
     selectColorImage = false;
+    initVecinos();
 
     //Inicializacion de imagenes
     colorImage.create(240, 320, CV_8UC3);
@@ -41,6 +42,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     connect(visorS, SIGNAL(pressEvent()), this, SLOT(deselectWindow()));
 
     connect(ui->loadButton, SIGNAL(pressed()), this, SLOT(loadFromFile()));
+
+    connect(ui->showBottomUp_checkbox, SIGNAL(clicked()), this, SLOT(segmentation()));
 
 
 
@@ -68,7 +71,6 @@ void MainWindow::compute()
         cvtColor(colorImage, colorImage, COLOR_BGR2RGB);
     }
 
-    // ________________Procesamiento__________________
 
 
     if (winSelected)
@@ -227,15 +229,14 @@ void MainWindow::initialize(){
 void MainWindow::segmentation(){
     initialize();
     idReg = 0;
-    int idx;
     Point seedPoint;
 
     for(int i = 0; i<imgRegiones.rows; i++){
         for(int j = 0; j<imgRegiones.cols; j++){
             //Mientras existan puntos que no sean bordes con valor -1 en imgRegiones
             if(imgRegiones.at<int>(j,i) == -1 && detected_edges.at<uchar>(j,i) != 255){
-                //seleccionar el primer punto p que no sea borde con valor -1 en imgRegiones
-                listRegiones[idx].p = Point(i,j);
+                seedPoint.x = i;
+                seedPoint.y = j;
                 //Lanzar el crecimiento para grayImage y colorImage
                 //Devuelve en minRect, el rectangulo minimo donde se marcan los puntos de la region con un 1
                 cv::floodFill(grayImage, imgMask, seedPoint,idReg, &minRect,Scalar(ui->max_box->value()),Scalar(ui->max_box->value()),4|(1 << 8)| FLOODFILL_MASK_ONLY);
@@ -243,28 +244,158 @@ void MainWindow::segmentation(){
                 //no etiquetados con valor igual a 1 en imgMask
                 for(int k = 0; k < minRect.width; k++){
                     for(int z = 0; z < minRect.height; z++){
-                        if(imgMask.at<int>(z, k) != 1){
+                        if(imgMask.at<int>(z, k) == 1 && imgRegiones.at<int>(z, k) == -1){
+                            r.id = idReg;
+                            r.nPuntos++;
+                            r.pIni = Point(k,z); //seleccionar el primer punto p que no sea borde con valor -1 en imgRegiones
+                            r.gMedio = valorMedio(k,z);
                             imgRegiones.at<int>(z, k) = idReg;
-                            listRegiones[idx].nPuntos++;
                         }
                     }
                 }
-
+                listRegiones.push_back(r);
             }else{
-                  idReg++;
+                idReg++;
+
             }
-            idx++;
-       }
+        }
     }
-    //POST PROCESSING
+    // ######### POST-PROCESAMIENTO #########
+    //Asignar puntos de bordes a alguna region
+    //Le asignamos el idReg del vecino que mas se parezca
+    int idVecino;
     for(int i = 0; i<imgRegiones.rows; i++){
         for(int j = 0; j<imgRegiones.cols; j++){
-            if(imgRegiones.at<uchar>(j,i) == 255){
-                    //NEIGHTBOUR COMPROBATIONS
+            if(imgRegiones.at<int>(j,i) == - 1){
+                idVecino = vecinoMasSimilar(i, j);
+                imgRegiones.at<int>(j,i) = idVecino;
+                listRegiones[idVecino].nPuntos++;
 
-                    //
+            }
+        }
+    }
+
+    //Lista fronteras
+    vecinosFrontera();
+    //Asigna los valores de gris de la imagen de regiones
+    bottomUp();
+
+
+}
+/** Metodo que agrega a la lista los puntos frontera de la imagen
+ * @brief MainWindow::vecinosFrontera
+ */
+void MainWindow::vecinosFrontera()
+{
+    int vx = 0, vy = 0, id = 0;
+    for(int x = 0; x < imgRegiones.rows; x++){
+        for(int y = 0; y <imgRegiones.cols; y++){
+            for(size_t i = 0; i < vecinos.size(); i++){
+                if(((x + vx) < imgRegiones.rows) && ((y + vy) < imgRegiones.cols)){
+                    vx = vecinos[i].x;
+                    vy = vecinos[i].y;
+                    if(imgRegiones.at<int>(y, x) != imgRegiones.at<int>(y+vy, x+vx)){
+                        id=imgRegiones.at<int>(y, x);
+                        listRegiones[id].frontera.push_back(Point(x,y));
+                        break;
+                    }
+                }
             }
         }
     }
 }
 
+/** Metodo que visita los 8 vecinos para elegir el más similar al punto central y devuelve el identificador de region.
+ * @brief MainWindow::vecinoMasSimilar
+ * @param x
+ * @param y
+ * @return
+ */
+int MainWindow::vecinoMasSimilar(int x, int y)
+{
+    int vx = 0, vy = 0;
+    int masSimilar = 255;
+    int resta;
+    int idReg = -1;
+    Point puntoSimilar;
+    for(size_t i = 0; i < vecinos.size(); i++){
+        if(((x + vx) < imgRegiones.rows) && ((y + vy) < imgRegiones.cols)){ //Si esta dentro de la imagen
+            vx = vecinos[i].x;
+            vy = vecinos[i].y;
+            resta = abs(grayImage.at<uchar>(y, x) - grayImage.at<uchar>(y + vy, x + vx));
+            if(resta == 0){
+                return idReg = imgRegiones.at<int>(y+vy, x+vx);
+
+            }else if(resta < masSimilar){
+                masSimilar = resta;
+                idReg = imgRegiones.at<int>(y+vy, x+vx);
+            }
+        }
+    }
+    return idReg;
+}
+
+/** Inicializa la estructura de visitado de vecinos
+ * @brief MainWindow::initVecinos
+ */
+void MainWindow::initVecinos()
+{
+    /*
+     * a  |  b  |   c
+     * d  |  p  |   e
+     * f  |  g  |   h
+     */
+
+    vecinos.push_back(Point(-1,-1)); //a
+    vecinos.push_back(Point(-1, 0)); //b
+    vecinos.push_back(Point(-1,+1)); //c
+    vecinos.push_back(Point( 0,-1)); //d
+    vecinos.push_back(Point( 0,+1)); //e
+    vecinos.push_back(Point(+1,-1)); //f
+    vecinos.push_back(Point(+1, 0)); //g
+    vecinos.push_back(Point(+1,+1)); //h
+
+
+}
+
+/** Metodo que calcula el valor gris medio de un rectangulo
+ * @brief MainWindow::valorMedio
+ * @param x
+ * @param y
+ * @return
+ */
+int MainWindow::valorMedio(int x, int y)
+{
+    int suma = 0;
+    int vx = 0, vy = 0;
+    int numVecinos = 0;
+    for(size_t i = 0; i < vecinos.size(); i++){
+        if(((x + vx) < grayImage.rows) && ((y + vy) < grayImage.cols)){ //Si esta dentro de la imagen
+            vx = vecinos[i].x;
+            vy = vecinos[i].y;
+            suma += grayImage.at<uchar>(y + vy,x + vx);
+            numVecinos++;
+        }
+    }
+    return suma / numVecinos;
+}
+
+/** Asigna en destGrayImage los valores de gris medio que se encuentran en la imagen y en la lista de regiones
+ * @brief MainWindow::bottomUp
+ */
+void MainWindow::bottomUp()
+{
+    int id = 0;
+    uchar valor = 0;
+    Mat imgGris;
+    imgGris.create(240, 320, CV_8UC1);
+    for(int x = 0; x < imgRegiones.rows; x++){
+        for(int y = 0; y <imgRegiones.cols; y++){
+            id = imgRegiones.at<int>(y, x);
+            valor = listRegiones[id].gMedio;
+            imgGris.at<uchar>(y, x) = valor;
+        }
+    }
+
+    imgGris.copyTo(destGrayImage);
+}

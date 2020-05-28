@@ -49,9 +49,11 @@ public:
     };
 
     typedef struct{
-        Point p;
+        int id;
+        Point pIni;
         int nPuntos;
-        uchar gMedio;
+        uchar gMedio; //valor gris medio
+        Vec3b cMedio; //valor color medio
         std::vector<Point> frontera;
     }Region;
 
@@ -76,8 +78,10 @@ private:
     Mat detected_edges;
     Mat canny_image; //Mat de canny    
     Rect minRect; //Minima ventana de los puntos modificados (añadidos a la region)
+    Region r;
 
     std::vector<Region> listRegiones;
+    std::vector<Point> vecinos;
     /*
     * cornerList[0] = Point
     * cornerList[1] = Valor de Point */
@@ -99,7 +103,11 @@ public slots:
     void saveToFile();
     void initialize();
     void segmentation();
-
+    void initVecinos();
+    int valorMedio(int x, int y);
+    int vecinoMasSimilar(int x, int y);
+    void vecinosFrontera();
+    void bottomUp();
 };
 
 
