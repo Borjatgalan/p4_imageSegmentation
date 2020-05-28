@@ -212,20 +212,23 @@ void MainWindow::initialize(){
     destGrayImage = Scalar::all(0);
 
     grayImage.copyTo(destGrayImage, canny_image);
+
+    //Initialize regions img  and region list
+    imgRegiones.setTo(-1);
+    listRegiones.clear();
+    //initialize mask image
+    cv::copyMakeBorder(canny_image,imgMask,1,1,1,1,1, BORDER_DEFAULT);
+
 }
 
 /** SE ENCARGA DEL PROCESAMIENTO DE LA IMAGEN
  * @brief MainWindow::segmentation
  */
 void MainWindow::segmentation(){
-    imgRegiones.setTo(-1);
-    listRegiones.clear();
     initialize();
     idReg = 0;
     int idx;
     Point seedPoint;
-    //inicializar mask
-    cv::copyMakeBorder(canny_image,imgMask,1,1,1,1,1, BORDER_DEFAULT);
 
     for(int i = 0; i<imgRegiones.rows; i++){
         for(int j = 0; j<imgRegiones.cols; j++){
@@ -235,24 +238,33 @@ void MainWindow::segmentation(){
                 listRegiones[idx].p = Point(i,j);
                 //Lanzar el crecimiento para grayImage y colorImage
                 //Devuelve en minRect, el rectangulo minimo donde se marcan los puntos de la region con un 1
-                //Falta definir correctamente minRect
-                cv::floodFill(grayImage, imgMask, seedPoint, minRect,4|(1 << 8)| FLOODFILL_MASK_ONLY);
+                cv::floodFill(grayImage, imgMask, seedPoint,idReg, &minRect,Scalar(ui->max_box->value()),Scalar(ui->max_box->value()),4|(1 << 8)| FLOODFILL_MASK_ONLY);
                 //Recorriendo minRect: Actualizar imgRegiones asignando el valor de idReg a los puntos
                 //no etiquetados con valor igual a 1 en imgMask
                 for(int k = 0; k < minRect.width; k++){
-                    for(int z = 0; z < minRect.height; z++)
-                        if(imgMask.at<int>(z, k) != 1)
+                    for(int z = 0; z < minRect.height; z++){
+                        if(imgMask.at<int>(z, k) != 1){
                             imgRegiones.at<int>(z, k) = idReg;
                             listRegiones[idx].nPuntos++;
-
+                        }
+                    }
                 }
 
-            }else
-                idReg++;
-
+            }else{
+                  idReg++;
+            }
             idx++;
        }
     }
+    //POST PROCESSING
+    for(int i = 0; i<imgRegiones.rows; i++){
+        for(int j = 0; j<imgRegiones.cols; j++){
+            if(imgRegiones.at<uchar>(j,i) == 255){
+                    //NEIGHTBOUR COMPROBATIONS
 
+                    //
+            }
+        }
+    }
 }
 
