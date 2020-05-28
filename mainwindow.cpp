@@ -19,6 +19,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
 
     cap = new VideoCapture(0);
     winSelected = false;
+    selectColorImage = false;
 
     //Inicializacion de imagenes
     colorImage.create(240, 320, CV_8UC3);
@@ -27,6 +28,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
     destGrayImage.create(240, 320, CV_8UC1);
     canny_image.create(240, 320, CV_8UC1);
     detected_edges.create(240, 320, CV_8UC1);
+    imgRegiones.create(240,320, CV_32SC1);
+    imgMask.create(240, 320, CV_8UC1);
 
     visorS = new ImgViewer(&grayImage, ui->imageFrameS);
     visorD = new ImgViewer(&destGrayImage, ui->imageFrameD);
@@ -203,7 +206,7 @@ void MainWindow::initialize(){
 
     // Canny detector
     cv::Canny(detected_edges, canny_image, lowThreshold, maxThreshold, 3);
-
+    canny_image.copyTo(detected_edges);
 
     // Using Canny's output as a mask, we display our result
     destGrayImage = Scalar::all(0);
@@ -211,6 +214,45 @@ void MainWindow::initialize(){
     grayImage.copyTo(destGrayImage, canny_image);
 }
 
+/** SE ENCARGA DEL PROCESAMIENTO DE LA IMAGEN
+ * @brief MainWindow::segmentation
+ */
 void MainWindow::segmentation(){
-    //HACE EL PROCESAMIENTO DE LA IMAGEN
+    imgRegiones.setTo(-1);
+    listRegiones.clear();
+    initialize();
+    idReg = 0;
+    int idx;
+    Point seedPoint;
+    //inicializar mask
+    cv::copyMakeBorder(canny_image,imgMask,1,1,1,1,1, BORDER_DEFAULT);
+
+    for(int i = 0; i<imgRegiones.rows; i++){
+        for(int j = 0; j<imgRegiones.cols; j++){
+            //Mientras existan puntos que no sean bordes con valor -1 en imgRegiones
+            if(imgRegiones.at<int>(j,i) == -1 && detected_edges.at<uchar>(j,i) != 255){
+                //seleccionar el primer punto p que no sea borde con valor -1 en imgRegiones
+                listRegiones[idx].p = Point(i,j);
+                //Lanzar el crecimiento para grayImage y colorImage
+                //Devuelve en minRect, el rectangulo minimo donde se marcan los puntos de la region con un 1
+                //Falta definir correctamente minRect
+                cv::floodFill(grayImage, imgMask, seedPoint, minRect,4|(1 << 8)| FLOODFILL_MASK_ONLY);
+                //Recorriendo minRect: Actualizar imgRegiones asignando el valor de idReg a los puntos
+                //no etiquetados con valor igual a 1 en imgMask
+                for(int k = 0; k < minRect.width; k++){
+                    for(int z = 0; z < minRect.height; z++)
+                        if(imgMask.at<int>(z, k) != 1)
+                            imgRegiones.at<int>(z, k) = idReg;
+                            listRegiones[idx].nPuntos++;
+
+                }
+
+            }else
+                idReg++;
+
+            idx++;
+       }
+    }
+
 }
+

@@ -117,7 +117,7 @@
    <property name="frameShadow">
     <enum>QFrame::Raised</enum>
    </property>
-   <widget class="QLabel" name="harrisF_label">
+   <widget class="QLabel" name="max_label">
     <property name="geometry">
      <rect>
       <x>100</x>
@@ -166,7 +166,7 @@
      <x>240</x>
      <y>330</y>
      <width>371</width>
-     <height>31</height>
+     <height>41</height>
     </rect>
    </property>
    <property name="autoFillBackground">

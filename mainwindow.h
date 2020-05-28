@@ -30,22 +30,31 @@ namespace Ui {
     class MainWindow;
 }
 
-typedef struct{
-    Point point;
-    float valor;
-} punto;
-
-struct puntoCompare {
-    bool operator()(const punto a, const punto b) const {
-        return a.valor > b.valor;
-    }
-};
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
+
+    typedef struct{
+        Point point;
+        float valor;
+    } punto;
+
+    struct puntoCompare {
+        bool operator()(const punto a, const punto b) const {
+            return a.valor > b.valor;
+        }
+    };
+
+    typedef struct{
+        Point p;
+        int nPuntos;
+        uchar gMedio;
+        std::vector<Point> frontera;
+    }Region;
+
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
@@ -58,12 +67,27 @@ private:
     VideoCapture *cap;
     ImgViewer *visorS, *visorD, *visorHistoS, *visorHistoD;
     Mat colorImage, grayImage, destColorImage, destGrayImage;
-    bool winSelected;
+    bool winSelected, selectColorImage;
     Rect imageWindow;
+    int idReg;
+
+    Mat imgRegiones;
+    Mat imgMask;
     Mat detected_edges;
-    Mat canny_image; //Mat de canny
+    Mat canny_image; //Mat de canny    
+    Rect minRect; //Minima ventana de los puntos modificados (añadidos a la region)
 
-
+    std::vector<Region> listRegiones;
+    /*
+    * cornerList[0] = Point
+    * cornerList[1] = Valor de Point */
+   std::vector<punto> cornerList;
+   // Vector de lineas
+   std::vector<QLine> lineList;
+   // Vector de puntos validos
+   std::vector<Point> pCorte;
+   //Vector de segmentos
+   std::vector<QLine> segmentList;
 
 public slots:
     void compute();
@@ -75,6 +99,7 @@ public slots:
     void saveToFile();
     void initialize();
     void segmentation();
+
 };
 
 
