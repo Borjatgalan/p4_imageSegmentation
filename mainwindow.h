@@ -104,7 +104,6 @@ public slots:
     void initialize();
     void segmentation();
     void initVecinos();
-    int valorMedio(int x, int y);
     int vecinoMasSimilar(int x, int y);
     void vecinosFrontera();
     void bottomUp();
