@@ -205,16 +205,12 @@ void MainWindow::initialize(){
     int lowThreshold = 40;
     int const maxThreshold = 120;
 
-    grayImage.copySize(destGrayImage);
     // Reduce noise with a kernel 3x3
-    blur(destGrayImage, detected_edges, Size(3, 3));
+    blur(grayImage, detected_edges, Size(3, 3));
 
     // Canny detector
     cv::Canny(detected_edges, canny_image, lowThreshold, maxThreshold, 3);
     canny_image.copyTo(detected_edges);
-
-    // Using Canny's output as a mask, we display our result
-    destGrayImage = Scalar::all(0);
 
     grayImage.copyTo(destGrayImage, canny_image);
 
@@ -249,39 +245,25 @@ void MainWindow::segmentation(){
                         if(imgMask.at<uchar>(z+1, k+1) == 1 && imgRegiones.at<int>(z, k) == -1){
                             r.id = idReg;
                             r.nPuntos++;
-                            r.pIni = Point(k,z); //Point(columa, fila)
+                            r.pIni = Point(k,z);                                //Point(columa, fila)
                             grisAcum += grayImage.at<uchar>(z, k);
-                            r.gMedio = grisAcum / r.nPuntos;
                             imgRegiones.at<int>(z, k) = idReg;
-                            idReg++;
                         }
                     }
                 }
+                r.gMedio = grisAcum / r.nPuntos;
                 listRegiones.push_back(r);
+                idReg++;
+                qDebug()<<"Size listRegiones: "<<listRegiones.size();
             }
         }
-        // ######### POST-PROCESAMIENTO #########
-        //Asignar puntos de bordes a alguna region
-        //Le asignamos el idReg del vecino que mas se parezca
-        int idVecino;
-        for(int i = 0; i<imgRegiones.rows; i++){
-            for(int j = 0; j<imgRegiones.cols; j++){
-                if(imgRegiones.at<int>(i,j) == - 1){
-                    idVecino = vecinoMasSimilar(i, j);
-                    imgRegiones.at<int>(i,j) = idVecino;
-                    listRegiones[idVecino].nPuntos++;
-
-                }
-            }
-        }
-
-        //Lista fronteras
-        vecinosFrontera();
-        //Asigna los valores de gris de la imagen de regiones
-        bottomUp();
-
-
     }
+
+    // ######### POST-PROCESAMIENTO #########
+
+//    asignarBordesARegion();
+//    vecinosFrontera();
+    bottomUp();
 
 }
 /** Metodo que agrega a la lista los puntos frontera de la imagen
@@ -296,9 +278,9 @@ void MainWindow::vecinosFrontera()
                 vx = vecinos[i].x;
                 vy = vecinos[i].y;
                 if(((x + vx) < imgRegiones.rows) && ((y + vy) < imgRegiones.cols)){
-                    if(imgRegiones.at<int>(y, x) != imgRegiones.at<int>(y+vy, x+vx)){
-                        id=imgRegiones.at<int>(y, x);
-                        listRegiones[id].frontera.push_back(Point(x,y));
+                    if(imgRegiones.at<int>(x, y) != imgRegiones.at<int>(x+vx, y+vy)){
+                        id=imgRegiones.at<int>(x, y);
+                        listRegiones[id].frontera.push_back(Point(y, x));
                         break;
                     }
                 }
@@ -324,15 +306,15 @@ int MainWindow::vecinoMasSimilar(int x, int y)
         vy = vecinos[i].y;
         //Comprobamos dentro del rango de la imagen
         if((x + vx) >= 0 && (y + vy) >= 0 && (x + vx) < imgRegiones.rows && (y + vy) < imgRegiones.cols){
-            if(imgRegiones.at<int>(y+vy, x+vx) != -1){
-	            resta = abs(grayImage.at<uchar>(y, x) - grayImage.at<uchar>(y+vy, x+vx));
-	            if(resta == 0){
-	                return idReg = imgRegiones.at<int>(y+vy, x+vx);
+            if(imgRegiones.at<int>(x+vx, y+vy) != -1){
+                resta = abs(grayImage.at<uchar>(x, y) - grayImage.at<uchar>(x+vx, y+vy));
+                if(resta == 0){
+                    return idReg = imgRegiones.at<int>(x+vx, y+vy);
 
-	            }else if(resta < masSimilar){
-	                masSimilar = resta;
-	                idReg = imgRegiones.at<int>(y+vy, x+vx);
-	            }
+                }else if(resta < masSimilar){
+                    masSimilar = resta;
+                    idReg = imgRegiones.at<int>(x+vx, y+vy);
+                }
             }
         }
     }
@@ -350,7 +332,7 @@ void MainWindow::initVecinos()
      * f  |  g  |   h
      */
 
-//  Point(columna, fila)
+    //  Point(columna, fila)
     vecinos.push_back(Point(-1,-1)); //a   //Etiquetas corregidas
     vecinos.push_back(Point( 0,-1)); //b
     vecinos.push_back(Point(+1,-1)); //c
@@ -372,17 +354,37 @@ void MainWindow::bottomUp()
     uchar valor = 0;
     Mat imgGris;
     imgGris.create(240, 320, CV_8UC1);
-    for(int x = 0; x < imgRegiones.rows; x++){
-        for(int y = 0; y <imgRegiones.cols; y++){
+    for(int y = 0; y < imgRegiones.rows; y++){
+        for(int x = 0; x <imgRegiones.cols; x++){
             id = imgRegiones.at<int>(x, y);
-            valor = listRegiones[id].gMedio;
-            imgGris.at<uchar>(x, y) = valor;
+            if(id == -1){
+                imgGris.at<uchar>(x, y) = 0;
+            }else{
+                valor = listRegiones[id].gMedio;
+                imgGris.at<uchar>(x, y) = valor;
+            }
         }
     }
-
     imgGris.copyTo(destGrayImage);
 }
 
+void MainWindow::asignarBordesARegion()
+{
+    int idVecino;
+    for(int i = 0; i<imgRegiones.rows; i++){
+        for(int j = 0; j<imgRegiones.cols; j++){
+            if(imgRegiones.at<int>(i,j) == - 1){
+                idVecino = vecinoMasSimilar(i, j);
+                imgRegiones.at<int>(i,j) = idVecino;
+                listRegiones[idVecino].nPuntos++;
+
+            }
+        }
+    }
+}
+
+//    Asignar puntos de bordes a alguna region
+//    Le asignamos el idReg del vecino que mas se parezca
 void MainWindow::mostrarListaRegiones()
 {
     Region r;

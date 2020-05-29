@@ -107,6 +107,7 @@ public slots:
     int vecinoMasSimilar(int x, int y);
     void vecinosFrontera();
     void bottomUp();
+    void asignarBordesARegion();
     void mostrarListaRegiones();
 };
 
