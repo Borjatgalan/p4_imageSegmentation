@@ -43,8 +43,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent),
 
     connect(ui->loadButton, SIGNAL(pressed()), this, SLOT(loadFromFile()));
 
-    //PILAR (29/05): la gestión del evento de activación del "checkbox" no debería hacerse así porque entonces sólo se ejecuta el SLOT en el instante de la pulsación
-    //PILAR (29/05): en su lugar, en el método compute, debéis comprobar si "ui->showBottomUp_checkbox" se encuentra activo y, en tal caso, llamar a "segmentacion"
     connect(ui->showBottomUp_checkbox, SIGNAL(clicked()), this, SLOT(segmentation()));
 
 
@@ -73,8 +71,10 @@ void MainWindow::compute()
         cvtColor(colorImage, colorImage, COLOR_BGR2RGB);
     }
 
-    if(ui->showBottomUp_checkbox->isChecked())
+    if(ui->showBottomUp_checkbox->isChecked()){
         segmentation();
+    }
+
 
     if (winSelected)
     {
@@ -234,31 +234,22 @@ void MainWindow::segmentation(){
     idReg = 0;
     Point seedPoint;
     int grisAcum;
-    //PILAR (29/05): PROBLEMA GENERAL: los accesos a Mat con el método at deben indicar primer la posición de fila y después la de columna
-    //PILAR (29/05): tenéis los accesos con las posiciones cambiadas en algunos sitios. Por ejemplo, imgRegiones.at<int>(j,i), debería ser imgRegiones.at<int>(i,j)
+
     for(int i = 0; i<imgRegiones.rows; i++){
         for(int j = 0; j<imgRegiones.cols; j++){
             if(imgRegiones.at<int>(i,j) == -1 && detected_edges.at<uchar>(i,j) != 255){
-                seedPoint.x = j; //DONE PILAR (29/05): i indica fila. Se corresponde con seedPoint.y
-                seedPoint.y = i; //DONE PILAR (29/05): j indica columna. Se corresponde con seedPoint.x
+                seedPoint.x = j;
+                seedPoint.y = i;
                 cv::floodFill(grayImage, imgMask, seedPoint,idReg, &minRect,Scalar(ui->max_box->value()),Scalar(ui->max_box->value()),4|(1 << 8)| FLOODFILL_MASK_ONLY);
-                //DONE PILAR (29/05): para recorrer la ventana minRect debéis partir, en el primer bucle, de minRect.x y terminar en minRect.x+minRect.width
-                //DONE PILAR (29/05): en el segundo bucle, comenzáis en minRect.y y termináis en minRect.y+minRect.height
+
                 grisAcum = 0;
                 r.nPuntos = 0;
                 for(int k = minRect.x; k < minRect.x+minRect.width; k++){ 		//columnas
                     for(int z = minRect.y; z < minRect.y+minRect.height; z++){ 	//filas
-                        //DONE PILAR (29/05): imgMask es de tipo CV_8UC1 (uchar)
-                        //DONE PILAR (29/05): imgMask tiene una fila más arriba y una columna más a la izquierda que imgRegiones.
-                        //DONE PILAR (29/05): para acceder a la posición correcta, el acceso tiene que ser a la posición (z+1, k+1): imgMask.at<uchar>(z+1, k+1)
                         if(imgMask.at<uchar>(z+1, k+1) == 1 && imgRegiones.at<int>(z, k) == -1){
                             r.id = idReg;
-                            r.nPuntos++; //DONE PILAR (29/05): tenéis que inicializarlo a 0 antes del bucle (antes de la línea 249)
+                            r.nPuntos++;
                             r.pIni = Point(k,z); //Point(columa, fila)
-                            //DONE PILAR (29/05): para calcular el nivel de gris medio hay que acumular el nivel de gris del punto actual sobre una variable de tipo int (grisAcum).
-                            //DONE PILAR (29/05): Debéis inicializar grisAcum a 0 antes del bucle de la línea 249 y acumular aquí el nivel de gris del punto que habéis añadido a la región.
-                            //DONE PILAR (29/05): Para ello, en lugar de la llamada  valorMedio, haríais lo siguiente: grisAcum += grayImage.at<uchar>(z, k)
-                            //DONE PILAR (29/05): Una vez que termina este bucle (antes de la línea 267, calculáis el nivel de gris medio de la región como grisAcum/r.nPuntos
                             grisAcum += grayImage.at<uchar>(z, k);
                             r.gMedio = grisAcum / r.nPuntos;
                             imgRegiones.at<int>(z, k) = idReg;
@@ -291,6 +282,7 @@ void MainWindow::segmentation(){
 
 
     }
+
 }
 /** Metodo que agrega a la lista los puntos frontera de la imagen
  * @brief MainWindow::vecinosFrontera
@@ -327,14 +319,11 @@ int MainWindow::vecinoMasSimilar(int x, int y)
     int masSimilar = 255;
     int resta;
     int idReg = -1;
-    Point puntoSimilar;
     for(size_t i = 0; i < vecinos.size(); i++){
-        //PILAR (29/05): el propio punto no debería entrar en la comprobación porque siempre va a ser el más similar
-        //PILAR (29/05): solo debeís comparar con los que tienen región asignada (imgRegiones.at<int>(y+vy, x+vx)!=-1)
-        // Comprobamos los vecinos, el propio punto no se comprueba puesto que no se encuentra en la lista de vecinos.
         vx = vecinos[i].x;
         vy = vecinos[i].y;
-        if(((x + vx) < imgRegiones.rows) && ((y + vy) < imgRegiones.cols)){ //Si esta dentro de la imagen
+        //Comprobamos dentro del rango de la imagen
+        if((x + vx) >= 0 && (y + vy) >= 0 && (x + vx) < imgRegiones.rows && (y + vy) < imgRegiones.cols){
             if(imgRegiones.at<int>(y+vy, x+vx) != -1){
 	            resta = abs(grayImage.at<uchar>(y, x) - grayImage.at<uchar>(y+vy, x+vx));
 	            if(resta == 0){
@@ -361,13 +350,14 @@ void MainWindow::initVecinos()
      * f  |  g  |   h
      */
 
-    vecinos.push_back(Point(-1,-1)); //a
-    vecinos.push_back(Point(-1, 0)); //b
-    vecinos.push_back(Point(-1,+1)); //c
-    vecinos.push_back(Point( 0,-1)); //d
-    vecinos.push_back(Point( 0,+1)); //e
-    vecinos.push_back(Point(+1,-1)); //f
-    vecinos.push_back(Point(+1, 0)); //g
+//  Point(columna, fila)
+    vecinos.push_back(Point(-1,-1)); //a   //Etiquetas corregidas
+    vecinos.push_back(Point( 0,-1)); //b
+    vecinos.push_back(Point(+1,-1)); //c
+    vecinos.push_back(Point(-1, 0)); //d
+    vecinos.push_back(Point(+1, 0)); //e
+    vecinos.push_back(Point(-1,+1)); //f
+    vecinos.push_back(Point( 0,+1)); //g
     vecinos.push_back(Point(+1,+1)); //h
 
 
@@ -382,7 +372,6 @@ void MainWindow::bottomUp()
     uchar valor = 0;
     Mat imgGris;
     imgGris.create(240, 320, CV_8UC1);
-    //DONE PILAR (29/05): el índice de fila debería ser y y el de columna x para que los accesos a las imágenes sean correctos
     for(int x = 0; x < imgRegiones.rows; x++){
         for(int y = 0; y <imgRegiones.cols; y++){
             id = imgRegiones.at<int>(x, y);
@@ -393,4 +382,19 @@ void MainWindow::bottomUp()
 
     imgGris.copyTo(destGrayImage);
 }
+
+void MainWindow::mostrarListaRegiones()
+{
+    Region r;
+    qDebug()<<"Size lista regiones: "<<listRegiones.size();
+    for(size_t i = 0; i < listRegiones.size(); i++){
+        qDebug()<<"ID: "<< listRegiones[i].id;
+        qDebug()<<"Punto ini: columna:"<< listRegiones[i].pIni.x << "fila: " << listRegiones[i].pIni.y;
+        qDebug()<<"Gris medio: "<< listRegiones[i].gMedio;
+        qDebug()<<"Numero de puntos de la region: "<< listRegiones[i].nPuntos;
+
+    }
+}
+
+
 
