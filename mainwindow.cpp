@@ -204,15 +204,26 @@ void MainWindow::initialize(){
     //INICIALIZA PARÁMETROS COMO IMAGEN DE MÁSCARA Y HACE EL GUARDADO DE LA IMAGEN CANNY
     int lowThreshold = 40;
     int const maxThreshold = 120;
+    if(ui->colorButton->isChecked()){
+        // Reduce noise with a kernel 3x3
+        blur(colorImage, detected_edges, Size(3, 3));
 
-    // Reduce noise with a kernel 3x3
-    blur(grayImage, detected_edges, Size(3, 3));
+        // Canny detector
+        cv::Canny(detected_edges, canny_image, lowThreshold, maxThreshold, 3);
+        canny_image.copyTo(detected_edges);
 
-    // Canny detector
-    cv::Canny(detected_edges, canny_image, lowThreshold, maxThreshold, 3);
-    canny_image.copyTo(detected_edges);
+        grayImage.copyTo(destColorImage, canny_image);
+    }
+    else{
+        // Reduce noise with a kernel 3x3
+        blur(grayImage, detected_edges, Size(3, 3));
 
-    grayImage.copyTo(destGrayImage, canny_image);
+        // Canny detector
+        cv::Canny(detected_edges, canny_image, lowThreshold, maxThreshold, 3);
+        canny_image.copyTo(detected_edges);
+
+        grayImage.copyTo(destGrayImage, canny_image);
+    }
 
     //Initialize regions img  and region list
     imgRegiones.setTo(-1);
@@ -229,7 +240,7 @@ void MainWindow::segmentation(){
     initialize();
     idReg = 0;
     Point seedPoint;
-    int grisAcum;
+    int grisAcum, R_Acum, G_Acum, B_Acum;
 
     for(int i = 0; i<imgRegiones.rows; i++){
         for(int j = 0; j<imgRegiones.cols; j++){
@@ -260,6 +271,9 @@ void MainWindow::segmentation(){
                 }
 
                 grisAcum = 0;
+                R_Acum = 0;
+                G_Acum = 0;
+                B_Acum = 0;
                 r.nPuntos = 0;
                 for(int k = minRect.x; k < minRect.x+minRect.width; k++){ 		//columnas
                     for(int z = minRect.y; z < minRect.y+minRect.height; z++){ 	//filas
@@ -267,12 +281,27 @@ void MainWindow::segmentation(){
                             r.id = idReg;
                             r.nPuntos++;
                             r.pIni = Point(k,z);                                //Point(columna, fila)
-                            grisAcum += grayImage.at<uchar>(z, k);
+                            if(ui->colorButton->isChecked()){
+                                Vec3b rgb = colorImage.at<Vec3b>(z, k);
+                                R_Acum += rgb[0];
+                                G_Acum += rgb[1];
+                                B_Acum += rgb[2];
+                            }
+                            else{
+                                grisAcum += grayImage.at<uchar>(z, k);
+                            }
                             imgRegiones.at<int>(z, k) = idReg;
                         }
                     }
                 }
-                r.gMedio = grisAcum / r.nPuntos;
+                if(ui->colorButton->isChecked()){
+                    r.rgbMedio[0] = R_Acum/r.nPuntos;
+                    r.rgbMedio[1] = G_Acum/r.nPuntos;
+                    r.rgbMedio[2] = B_Acum/r.nPuntos;
+                }
+                else{
+                    r.gMedio = grisAcum / r.nPuntos;
+                }
                 listRegiones.push_back(r);
                 idReg++;
             }
@@ -327,7 +356,12 @@ int MainWindow::vecinoMasSimilar(int x, int y)
         //Comprobamos dentro del rango de la imagen
         if((x + vx) >= 0 && (y + vy) >= 0 && (x + vx) < imgRegiones.rows && (y + vy) < imgRegiones.cols){
             if(imgRegiones.at<int>(x+vx, y+vy) != -1){
-                resta = abs(grayImage.at<uchar>(x, y) - grayImage.at<uchar>(x+vx, y+vy));
+                if(ui->colorButton->isChecked()){
+                    resta = abs(colorImage.at<uchar>(x, y) - colorImage.at<uchar>(x+vx, y+vy));
+                }
+                else{
+                    resta = abs(grayImage.at<uchar>(x, y) - grayImage.at<uchar>(x+vx, y+vy));
+                }
                 if(resta == 0){
                     return idReg = imgRegiones.at<int>(x+vx, y+vy);
 
@@ -372,20 +406,38 @@ void MainWindow::bottomUp()
 {
     int id = 0;
     uchar valor = 0;
+    Vec3b colorValue;
     Mat imgGris;
+    Mat imgColor;
     imgGris.create(240, 320, CV_8UC1);
-    for(int y = 0; y < imgRegiones.rows; y++){
-        for(int x = 0; x <imgRegiones.cols; x++){
-            id = imgRegiones.at<int>(y,x);
-            if(id == -1){
-                imgGris.at<uchar>(y,x) = 0;
-            }else{
-                valor = listRegiones[id].gMedio;
-                imgGris.at<uchar>(y,x) = valor;
+    imgColor.create(240,320, CV_8UC3);
+    if(ui->colorButton->isChecked()){
+        for(int y = 0; y < imgRegiones.rows; y++){
+            for(int x = 0; x <imgRegiones.cols; x++){
+                id = imgRegiones.at<int>(y,x);
+                if(id == -1){
+                    imgColor.at<uchar>(y,x) = 0;
+                }else{
+                    colorValue = listRegiones[id].rgbMedio;
+                    imgColor.at<Vec3b>(y,x) = colorValue;
+                }
             }
         }
+        imgColor.copyTo(destColorImage);
+    }else{
+        for(int y = 0; y < imgRegiones.rows; y++){
+            for(int x = 0; x <imgRegiones.cols; x++){
+                id = imgRegiones.at<int>(y,x);
+                if(id == -1){
+                    imgGris.at<uchar>(y,x) = 0;
+                }else{
+                    valor = listRegiones[id].gMedio;
+                    imgGris.at<uchar>(y,x) = valor;
+                }
+            }
+        }
+        imgGris.copyTo(destGrayImage);
     }
-    imgGris.copyTo(destGrayImage);
 }
 
 /** Metodo encargado de asignar los bordes a una de las posibles regiones de la imagen

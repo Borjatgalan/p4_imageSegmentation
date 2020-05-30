@@ -53,7 +53,7 @@ public:
         Point pIni;
         int nPuntos;
         uchar gMedio; //valor gris medio
-        Vec3b cMedio; //valor color medio
+        Vec3b rgbMedio; //valor color medio
         std::vector<Point> frontera;
     }Region;
 
