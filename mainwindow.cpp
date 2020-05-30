@@ -254,15 +254,14 @@ void MainWindow::segmentation(){
                 r.gMedio = grisAcum / r.nPuntos;
                 listRegiones.push_back(r);
                 idReg++;
-                qDebug()<<"Size listRegiones: "<<listRegiones.size();
             }
         }
     }
 
     // ######### POST-PROCESAMIENTO #########
 
-//    asignarBordesARegion();
-//    vecinosFrontera();
+    asignarBordesARegion();
+    vecinosFrontera();
     bottomUp();
 
 }
@@ -356,18 +355,21 @@ void MainWindow::bottomUp()
     imgGris.create(240, 320, CV_8UC1);
     for(int y = 0; y < imgRegiones.rows; y++){
         for(int x = 0; x <imgRegiones.cols; x++){
-            id = imgRegiones.at<int>(x, y);
+            id = imgRegiones.at<int>(y,x);
             if(id == -1){
-                imgGris.at<uchar>(x, y) = 0;
+                imgGris.at<uchar>(y,x) = 0;
             }else{
                 valor = listRegiones[id].gMedio;
-                imgGris.at<uchar>(x, y) = valor;
+                imgGris.at<uchar>(y,x) = valor;
             }
         }
     }
     imgGris.copyTo(destGrayImage);
 }
 
+/** Metodo encargado de asignar los bordes a una de las posibles regiones de la imagen
+ * @brief MainWindow::asignarBordesARegion
+ */
 void MainWindow::asignarBordesARegion()
 {
     int idVecino;
@@ -383,8 +385,10 @@ void MainWindow::asignarBordesARegion()
     }
 }
 
-//    Asignar puntos de bordes a alguna region
-//    Le asignamos el idReg del vecino que mas se parezca
+/**
+ * Asignar puntos de bordes a alguna region
+ * Le asignamos el idReg del vecino que mas se parezca
+ */
 void MainWindow::mostrarListaRegiones()
 {
     Region r;
