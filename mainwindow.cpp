@@ -236,7 +236,28 @@ void MainWindow::segmentation(){
             if(imgRegiones.at<int>(i,j) == -1 && detected_edges.at<uchar>(i,j) != 255){
                 seedPoint.x = j;
                 seedPoint.y = i;
-                cv::floodFill(grayImage, imgMask, seedPoint,idReg, &minRect,Scalar(ui->max_box->value()),Scalar(ui->max_box->value()),4|(1 << 8)| FLOODFILL_MASK_ONLY);
+                //Comprobación de imagen en color o grises
+                if(ui->colorButton->isChecked()){
+                    //Comprobación de punto flotante o fijo
+                    if(ui->showFloatingRange_checkbox->isChecked()){
+                        cv::floodFill(colorImage, imgMask, seedPoint,idReg, &minRect,
+                                      Scalar(ui->max_box->value(), ui->max_box->value(), ui->max_box->value()),
+                                      Scalar(ui->max_box->value(), ui->max_box->value(), ui->max_box->value()),
+                                      4|(1 << 8)| FLOODFILL_MASK_ONLY);
+                    }else{
+                        cv::floodFill(colorImage, imgMask, seedPoint,idReg, &minRect,
+                                      Scalar(ui->max_box->value(), ui->max_box->value(), ui->max_box->value()),
+                                      Scalar(ui->max_box->value(), ui->max_box->value(), ui->max_box->value()),
+                                      4|(1 << 8)| FLOODFILL_MASK_ONLY | FLOODFILL_FIXED_RANGE);
+                    }
+                }else{
+                    //Comprobación de punto fijo o flotante
+                    if(ui->showFloatingRange_checkbox->isChecked()){
+                        cv::floodFill(grayImage, imgMask, seedPoint,idReg, &minRect,Scalar(ui->max_box->value()),Scalar(ui->max_box->value()),4|(1 << 8)| FLOODFILL_MASK_ONLY);
+                    }else{
+                        cv::floodFill(grayImage, imgMask, seedPoint,idReg, &minRect,Scalar(ui->max_box->value()),Scalar(ui->max_box->value()),4|(1 << 8)| FLOODFILL_MASK_ONLY | FLOODFILL_FIXED_RANGE);
+                    }
+                }
 
                 grisAcum = 0;
                 r.nPuntos = 0;
@@ -245,7 +266,7 @@ void MainWindow::segmentation(){
                         if(imgMask.at<uchar>(z+1, k+1) == 1 && imgRegiones.at<int>(z, k) == -1){
                             r.id = idReg;
                             r.nPuntos++;
-                            r.pIni = Point(k,z);                                //Point(columa, fila)
+                            r.pIni = Point(k,z);                                //Point(columna, fila)
                             grisAcum += grayImage.at<uchar>(z, k);
                             imgRegiones.at<int>(z, k) = idReg;
                         }
